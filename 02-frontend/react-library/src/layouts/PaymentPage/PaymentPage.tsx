@@ -4,14 +4,15 @@ import React, {
 	useState,
 } from 'react';
 import { SpinnerLoader } from '../Utils/SpinnerLoader';
-import { CardElement } from '@stripe/react-stripe-js';
+import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Link } from 'react-router-dom';
+import PaymentInfoRequest from '../../models/PaymentInfoRequest';
 
 export default function PaymentPage() {
 	const { authState } = useOktaAuth();
 
 	const [httpError, setHttpError] =
-		useState(null);
+		useState(false);
 	const [submitDisabled, setSubmitDisabled] =
 		useState(false);
 	const [fees, setFees] = useState(0);
@@ -67,6 +68,80 @@ export default function PaymentPage() {
 		});
 	}, [authState]);
 
+	const elements = useElements();
+	const stripe = useStripe();
+
+	async function checkout(){
+		if(!stripe || !elements || !(elements.getElement(CardElement))) return;
+
+		setSubmitDisabled(true);
+
+		let paymentInfo = new PaymentInfoRequest(Math.round(fees*100),'USD',authState?.accessToken?.claims.sub);
+
+		const url=`https://localhost:8443/api/payment/secure/payment-intent`;
+
+		const requestOptions = {
+			method:'POST',
+			Authorization: `Bearer ${authState?.accessToken?.accessToken}`,
+			headers:{
+				'Content-Type':'application/json'
+			},
+			body:JSON.stringify(paymentInfo)
+		}
+
+		const stripePaymentResponse = await fetch(url,requestOptions);
+
+		if(!stripePaymentResponse.ok){
+			setHttpError(true);
+			setSubmitDisabled(false);
+			throw new Error('Something went wrong!')
+		}
+
+		const stripeResponseJson = await stripePaymentResponse.json();
+
+		stripe.confirmCardPayment(stripeResponseJson.client_secret,{
+			payment_method:{
+				card: elements.getElement(CardElement)!,
+				billing_details:{
+					email:authState?.accessToken?.claims.sub
+				}
+			}
+		},{handleActions:false}
+		).then(async function(result:any){
+			if(result.error){
+				setSubmitDisabled(false);
+				alert('There was an error')
+			}
+
+			else{
+				const url = `https://localhost:8443/api/payment/secure/payment-complete`
+
+				const requestOptions = {
+					method:'PUT',
+					headers:{
+						Authorization:`Bearer ${authState?.accessToken?.accessToken}`,
+						'Content-Type':'application/json'
+					}
+				}
+
+				const stripeResponse = await fetch(url,requestOptions);
+
+				if(!stripeResponse.ok){
+					setHttpError(true);
+					setSubmitDisabled(false);
+					throw new Error('Something went wrong!')
+				}
+
+				setFees(0);
+				setSubmitDisabled(false);
+
+
+			}
+		})
+
+
+
+	}
 	if (isLoadingFees) return <SpinnerLoader />;
 
 	if (httpError) {
@@ -93,6 +168,7 @@ export default function PaymentPage() {
 							<button
 								type='button'
 								disabled={submitDisabled}
+								onClick={checkout}
 								className='btn btn-md main-color text-white mt-3'>
 								Pay Fees
 							</button>

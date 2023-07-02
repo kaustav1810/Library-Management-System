@@ -59,6 +59,7 @@ public class BookService {
 
             double timeDiff = time.convert(d1.getTime() - d2.getTime(), TimeUnit.MILLISECONDS);
 
+
             if (timeDiff < 0) {
                 isDue = true;
                 break;
@@ -68,12 +69,14 @@ public class BookService {
 
         Payment userPayment = paymentRepository.findByUserEmail(userEmail);
 
-        if (userEmail != null && (isDue || userPayment.getAmount()>0))
-            throw new Exception("Overdue");
+        // System.out.println("amountDue: "+userPayment+" isDue: "+isDue+" getAmount: "+userPayment.getAmount());
+
+        if ( (userPayment != null && isDue) || (userPayment!=null && userPayment.getAmount()>0))
+            throw new Exception("Overdue Yaaar!!");
 
         else {
-            Payment payment = new Payment();
-
+            Payment payment = userPayment==null?new Payment():userPayment;
+            
             payment.setAmount(00.00);
             payment.setUserEmail(userEmail);
             paymentRepository.save(payment);
