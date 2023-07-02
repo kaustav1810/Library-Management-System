@@ -13,8 +13,6 @@ export const Carousel = () => {
     const fetchBooks = async () => {
       const baseUrl: string = `${process.env.REACT_APP_API}/books`;
 
-      console.log(process.env);
-      
       const url: string = `${baseUrl}?page=0&size=9`;
 
       const response = await fetch(url);
