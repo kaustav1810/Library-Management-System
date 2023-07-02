@@ -18,6 +18,7 @@ export const HistoryPage = () => {
 
   const [totalPages, setTotalPages] = useState(0);
 
+  
   useEffect(() => {
     const fetchLoanHistory = async () => {
       if (authState && authState.isAuthenticated) {
